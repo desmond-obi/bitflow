@@ -74,3 +74,60 @@
 
 ;; Bitcoin-backed token definition
 (define-fungible-token bitflow-btc)
+
+;; ACCESS CONTROL & VALIDATION FUNCTIONS
+
+;; Verify protocol administrator privileges
+(define-private (verify-admin-access)
+  (is-eq tx-sender (var-get protocol-admin))
+)
+
+;; Validate principal address integrity
+(define-private (is-valid-address (address principal))
+  (and
+    (not (is-eq address tx-sender))
+    (not (is-eq address (as-contract tx-sender)))
+  )
+)
+
+;; Validate Bitcoin transaction hash format
+(define-private (is-valid-bitcoin-hash (hash (string-ascii 64)))
+  (and
+    (> (len hash) u40)
+    (<= (len hash) u64)
+    (not (is-eq hash ""))
+  )
+)
+
+;; ORACLE NETWORK MANAGEMENT
+
+;; Register new oracle validator
+(define-public (register-oracle (oracle-address principal))
+  (begin
+    (asserts! (verify-admin-access) ERR-UNAUTHORIZED)
+    (asserts! (is-valid-address oracle-address) ERR-INVALID-PARAMETERS)
+    (map-set oracle-registry oracle-address true)
+    (ok true)
+  )
+)
+
+;; Revoke oracle validator privileges  
+(define-public (revoke-oracle (oracle-address principal))
+  (begin
+    (asserts! (verify-admin-access) ERR-UNAUTHORIZED)
+    (map-set oracle-registry oracle-address false)
+    (ok true)
+  )
+)
+
+;; COMPLIANCE & WHITELIST MANAGEMENT
+
+;; Add address to compliance whitelist
+(define-public (whitelist-address (recipient principal))
+  (begin
+    (asserts! (verify-admin-access) ERR-UNAUTHORIZED)
+    (asserts! (is-valid-address recipient) ERR-INVALID-PARAMETERS)
+    (map-set compliance-whitelist recipient true)
+    (ok true)
+  )
+)
