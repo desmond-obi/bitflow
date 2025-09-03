@@ -131,3 +131,54 @@
     (ok true)
   )
 )
+
+;; Remove address from compliance whitelist
+(define-public (delist-address (recipient principal))
+  (begin
+    (asserts! (verify-admin-access) ERR-UNAUTHORIZED)
+    (map-set compliance-whitelist recipient false)
+    (ok true)
+  )
+)
+
+;; PROTOCOL CONFIGURATION MANAGEMENT
+
+;; Emergency protocol pause mechanism
+(define-public (pause-protocol)
+  (begin
+    (asserts! (verify-admin-access) ERR-UNAUTHORIZED)
+    (var-set protocol-paused true)
+    (ok true)
+  )
+)
+
+;; Resume protocol operations
+(define-public (resume-protocol)
+  (begin
+    (asserts! (verify-admin-access) ERR-UNAUTHORIZED)
+    (var-set protocol-paused false)
+    (ok true)
+  )
+)
+
+;; Update bridge fee structure (in basis points)
+(define-public (update-bridge-fee (new-fee-bp uint))
+  (begin
+    (asserts! (verify-admin-access) ERR-UNAUTHORIZED)
+    (asserts! (<= new-fee-bp u500) ERR-INVALID-PARAMETERS) ;; Max 5% fee
+    (var-set bridge-fee-basis-points new-fee-bp)
+    (ok true)
+  )
+)
+
+;; Adjust maximum deposit limits
+(define-public (update-deposit-limit (new-limit uint))
+  (begin
+    (asserts! (verify-admin-access) ERR-UNAUTHORIZED)
+    (asserts! (and (> new-limit u0) (<= new-limit u10000000000))
+      ERR-INVALID-PARAMETERS
+    )
+    (var-set maximum-single-deposit new-limit)
+    (ok true)
+  )
+)
