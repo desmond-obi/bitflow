@@ -182,3 +182,48 @@
     (ok true)
   )
 )
+
+;; CORE BRIDGE FUNCTIONALITY
+
+;; Process Bitcoin deposit and mint BitFlow BTC tokens
+(define-public (process-bitcoin-deposit
+    (bitcoin-tx-hash (string-ascii 64))
+    (deposit-amount uint)
+    (recipient-address principal)
+  )
+  (let (
+      (fee-amount (/ (* deposit-amount (var-get bridge-fee-basis-points)) u10000))
+      (net-deposit (- deposit-amount fee-amount))
+      (recipient-authorized (default-to false (map-get? compliance-whitelist recipient-address)))
+    )
+    ;; Comprehensive input validation
+    (asserts! (is-valid-bitcoin-hash bitcoin-tx-hash) ERR-INVALID-BITCOIN-HASH)
+    (asserts! (> deposit-amount u0) ERR-INVALID-AMOUNT)
+    (asserts! (<= deposit-amount (var-get maximum-single-deposit))
+      ERR-DEPOSIT-LIMIT-EXCEEDED
+    )
+    (asserts! (is-valid-address recipient-address) ERR-INVALID-PARAMETERS)
+    (asserts! recipient-authorized ERR-RECIPIENT-NOT-WHITELISTED)
+
+    ;; Protocol state validation
+    (asserts! (not (var-get protocol-paused)) ERR-PROTOCOL-PAUSED)
+    (asserts!
+      (is-none (map-get? processed-bitcoin-txs { btc-hash: bitcoin-tx-hash }))
+      ERR-DUPLICATE-TRANSACTION
+    )
+
+    ;; Oracle consensus validation
+    (try! (validate-bitcoin-deposit bitcoin-tx-hash deposit-amount))
+
+    ;; Execute token minting
+    (try! (ft-mint? bitflow-btc net-deposit recipient-address))
+
+    ;; Update protocol state
+    (map-set processed-bitcoin-txs { btc-hash: bitcoin-tx-hash } true)
+    (var-set total-bitcoin-locked
+      (+ (var-get total-bitcoin-locked) deposit-amount)
+    )
+
+    (ok net-deposit)
+  )
+)
