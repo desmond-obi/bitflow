@@ -227,3 +227,54 @@
     (ok net-deposit)
   )
 )
+
+;; Validate Bitcoin transaction through oracle consensus
+(define-private (validate-bitcoin-deposit
+    (bitcoin-tx-hash (string-ascii 64))
+    (amount uint)
+  )
+  (let ((oracle-authorized (default-to false (map-get? oracle-registry tx-sender))))
+    (asserts! (is-valid-bitcoin-hash bitcoin-tx-hash) ERR-INVALID-BITCOIN-HASH)
+    (asserts! (> amount u0) ERR-INVALID-AMOUNT)
+    (asserts! oracle-authorized ERR-ORACLE-CONSENSUS-FAILED)
+    (ok true)
+  )
+)
+
+;; PUBLIC READ-ONLY INTERFACE
+
+;; Get total Bitcoin locked in the protocol
+(define-read-only (get-total-locked-bitcoin)
+  (var-get total-bitcoin-locked)
+)
+
+;; Check BitFlow BTC token balance for user
+(define-read-only (get-user-balance (user principal))
+  (ft-get-balance bitflow-btc user)
+)
+
+;; Verify oracle authorization status
+(define-read-only (is-authorized-oracle (oracle principal))
+  (default-to false (map-get? oracle-registry oracle))
+)
+
+;; Check address whitelist status
+(define-read-only (is-whitelisted-address (address principal))
+  (default-to false (map-get? compliance-whitelist address))
+)
+
+;; Get current protocol configuration
+(define-read-only (get-protocol-config)
+  {
+    admin: (var-get protocol-admin),
+    paused: (var-get protocol-paused),
+    fee-bp: (var-get bridge-fee-basis-points),
+    max-deposit: (var-get maximum-single-deposit),
+    total-locked: (var-get total-bitcoin-locked),
+  }
+)
+
+;; Check if Bitcoin transaction was already processed
+(define-read-only (is-transaction-processed (btc-hash (string-ascii 64)))
+  (default-to false (map-get? processed-bitcoin-txs { btc-hash: btc-hash }))
+)
